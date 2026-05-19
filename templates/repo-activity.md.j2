@@ -1,0 +1,64 @@
+---
+title: "repo activity: {{ date }}"
+author: steve ulrich
+email: sulrich@botwerks.org
+creation date: {{ date }}
+tags:
+  - repo-newz
+  - github
+  - automation
+---
+
+# repo activity — {{ date_pretty }}
+
+{{ overview_prose }}
+
+## by repo
+
+{% for repo in repos -%}
+### {{ repo.full_name }}
+
+{{ repo.prose }}
+
+{% if repo.contributors -%}
+**contributors**
+
+| login | commits | prs | issues | releases |
+|---|---|---|---|---|
+{% for c in repo.contributors -%}
+| [{{ c.login }}](https://github.com/{{ c.login }}) | {{ c.commits }} | {{ c.prs }} | {{ c.issues }} | {{ c.releases }} |
+{% endfor %}
+{% endif -%}
+{% if repo.commits -%}
+**commits**
+{% for c in repo.commits -%}
+- `{{ c.sha }}` {{ c.title }} — {{ c.actor }}
+{% endfor %}
+{% endif -%}
+{% if repo.prs -%}
+**pull requests**
+{% for p in repo.prs -%}
+- [#{{ p.number }}]({{ p.url }}) {{ p.state_label }} — {{ p.title }} — {{ p.actor }}
+{% endfor %}
+{% endif -%}
+{% if repo.issues -%}
+**issues**
+{% for i in repo.issues -%}
+- [#{{ i.number }}]({{ i.url }}) {{ i.state_label }} — {{ i.title }} — {{ i.actor }}
+{% endfor %}
+{% endif -%}
+{% if repo.releases -%}
+**releases / tags**
+{% for r in repo.releases -%}
+- {{ r.title }} ({{ r.url }})
+{% endfor %}
+{% endif -%}
+
+{% endfor -%}
+{% if warnings %}
+## warnings
+
+{% for w in warnings -%}
+- {{ w }}
+{% endfor %}
+{% endif %}
