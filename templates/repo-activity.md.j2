@@ -38,7 +38,7 @@ tags:
 {% if repo.prs -%}
 **pull requests**
 {% for p in repo.prs -%}
-- [#{{ p.number }}]({{ p.url }}) {{ p.state_label }} — {{ p.title }} — {{ p.actor }}
+- [#{{ p.number }}]({{ p.url }}) {{ p.state_label }} — {{ p.title }} — {{ p.actor }}{% if p.labels %} [{{ p.labels | join(", ") }}]{% endif %}
 {% endfor %}
 {% endif -%}
 {% if repo.issues -%}

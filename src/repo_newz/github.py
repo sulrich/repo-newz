@@ -202,12 +202,15 @@ def _events_for_repo(
             }
         )
 
-    # --- PRs ---  (intentional caps; it's an acronym)
+    # --- PRs ---
     prs = _fetch_prs(client, owner, repo_name)
     for pr in prs:
         created_at = _parse_dt(pr["created_at"])
         merged_at_str = pr.get("merged_at")
         merged_at = _parse_dt(merged_at_str) if merged_at_str else None
+        closed_at_str = pr.get("closed_at")
+        closed_at = _parse_dt(closed_at_str) if closed_at_str else None
+        labels = [lbl["name"] for lbl in pr.get("labels", [])]
 
         actor = pr["user"]["login"]
         base_event = {
@@ -217,16 +220,18 @@ def _events_for_repo(
             "url": pr["html_url"],
             "number": pr["number"],
             "sha": None,
+            "labels": labels,
         }
 
         if created_at >= since:
-            events.append(
-                {**base_event, "kind": "pr_opened", "at": pr["created_at"]}
-            )
+            events.append({**base_event, "kind": "pr_opened", "at": pr["created_at"]})
         if merged_at is not None and merged_at >= since:
-            events.append(
-                {**base_event, "kind": "pr_merged", "at": merged_at_str}
-            )
+            events.append({**base_event, "kind": "pr_merged", "at": merged_at_str})
+        # closed without a github merge (e.g. facebook-style tooling that closes
+        # PRs externally and adds a "merged" label instead of using github merge)
+        if merged_at is None and closed_at is not None and closed_at >= since:
+            kind = "pr_merged" if "merged" in labels else "pr_closed"
+            events.append({**base_event, "kind": kind, "at": closed_at_str})
 
     # --- issues ---
     issues = _fetch_issues(client, owner, repo_name, since)
@@ -253,9 +258,7 @@ def _events_for_repo(
                 {**base_event, "kind": "issue_opened", "at": issue["created_at"]}
             )
         if closed_at is not None and closed_at >= since:
-            events.append(
-                {**base_event, "kind": "issue_closed", "at": closed_at_str}
-            )
+            events.append({**base_event, "kind": "issue_closed", "at": closed_at_str})
 
     # --- releases ---
     releases = _fetch_releases(client, owner, repo_name)

@@ -30,6 +30,7 @@ _EVENTS = [
         "at": "2026-05-19T07:00:00Z",
         "number": 42,
         "sha": None,
+        "labels": [],
     },
     {
         "repo": "owner/repo",
@@ -40,6 +41,18 @@ _EVENTS = [
         "at": "2026-05-19T08:00:00Z",
         "number": 43,
         "sha": None,
+        "labels": ["needs-review"],
+    },
+    {
+        "repo": "owner/repo",
+        "kind": "pr_closed",
+        "actor": "dave",
+        "title": "declined pr",
+        "url": "https://github.com/owner/repo/pull/44",
+        "at": "2026-05-19T08:30:00Z",
+        "number": 44,
+        "sha": None,
+        "labels": ["wontfix"],
     },
     {
         "repo": "owner/repo",
@@ -124,6 +137,16 @@ def test_pr_merged_state_label(output):
 def test_pr_opened_state_label(output):
     assert "[#43]" in output
     assert "opened" in output
+
+
+def test_pr_closed_state_label(output):
+    assert "[#44]" in output
+    assert "closed" in output
+
+
+def test_pr_labels_rendered(output):
+    assert "needs-review" in output
+    assert "wontfix" in output
 
 
 def test_issue_closed_state_label(output):

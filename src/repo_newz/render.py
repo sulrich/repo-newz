@@ -9,7 +9,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined
 _TEMPLATE_DIR = Path(__file__).parent.parent.parent / "templates"
 _TEMPLATE_NAME = "repo-activity.md.j2"
 
-_PR_KINDS = {"pr_opened", "pr_merged"}
+_PR_KINDS = {"pr_opened", "pr_merged", "pr_closed"}
 _ISSUE_KINDS = {"issue_opened", "issue_closed"}
 
 
@@ -33,7 +33,12 @@ def render(
         for e in repo_events:
             if e["kind"] in _PR_KINDS:
                 entry = dict(e)
-                entry["state_label"] = "merged" if e["kind"] == "pr_merged" else "opened"
+                if e["kind"] == "pr_merged":
+                    entry["state_label"] = "merged"
+                elif e["kind"] == "pr_opened":
+                    entry["state_label"] = "opened"
+                else:  # pr_closed
+                    entry["state_label"] = "closed"
                 prs.append(entry)
 
         issues = []

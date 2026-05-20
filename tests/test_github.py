@@ -63,7 +63,9 @@ def make_pr(
     user_login: str,
     created_at: str,
     merged_at: str | None = None,
+    closed_at: str | None = None,
     state: str = "open",
+    labels: list[str] | None = None,
 ) -> dict:
     return {
         "number": number,
@@ -73,6 +75,8 @@ def make_pr(
         "user": {"login": user_login},
         "created_at": created_at,
         "merged_at": merged_at,
+        "closed_at": closed_at,
+        "labels": [{"name": lbl} for lbl in (labels or [])],
     }
 
 
@@ -506,3 +510,96 @@ def test_actor_fallback_no_author_field():
     assert len(events) == 1
     # Falls back to commit.commit.author.name which make_commit sets to "Test Author"
     assert events[0]["actor"] == "Test Author"
+
+
+def test_pr_labels_included():
+    """Labels from the PR are included in the event dict."""
+    pr = make_pr(5, "Labelled PR", "oscar", IN_WINDOW, labels=["bug", "needs-review"])
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[pr]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    assert len(events) == 1
+    assert events[0]["labels"] == ["bug", "needs-review"]
+
+
+def test_pr_closed_in_window():
+    """PR closed (not github-merged) in window → pr_closed event."""
+    pr = make_pr(6, "Externally merged PR", "pat", BEFORE_WINDOW, closed_at=IN_WINDOW, state="closed")
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[pr]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    kinds = [e["kind"] for e in events]
+    assert kinds == ["pr_closed"]
+    assert events[0]["at"] == IN_WINDOW
+
+
+def test_pr_closed_with_merged_label_emits_pr_merged():
+    """PR closed with a 'merged' label emits pr_merged (facebook-style tooling)."""
+    pr = make_pr(
+        7, "FB-style merged PR", "quinn", BEFORE_WINDOW,
+        closed_at=IN_WINDOW, state="closed", labels=["merged", "shipit"],
+    )
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[pr]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    assert len(events) == 1
+    e = events[0]
+    assert e["kind"] == "pr_merged"
+    assert "merged" in e["labels"]
+
+
+def test_pr_closed_before_window_excluded():
+    """PR closed before the window does not produce a pr_closed event."""
+    pr = make_pr(8, "Old closed PR", "riley", BEFORE_WINDOW, closed_at=BEFORE_WINDOW, state="closed")
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[pr]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    assert events == []
+
+
+def test_pr_github_merged_does_not_emit_pr_closed():
+    """PR merged via github (merged_at set) does not also emit pr_closed."""
+    pr = make_pr(
+        9, "Normal merge", "sam", BEFORE_WINDOW,
+        merged_at=IN_WINDOW, closed_at=IN_WINDOW, state="closed",
+    )
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[pr]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    kinds = [e["kind"] for e in events]
+    assert kinds == ["pr_merged"]
