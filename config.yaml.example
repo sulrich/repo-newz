@@ -2,5 +2,8 @@ window_hours: 24
 vault_subpath: "{year}/repo-activity-{date}.md"
 model: claude-sonnet-4-6
 repos:
-  - anthropics/claude-code
   - sulrich/dotfiles
+  - facebook/fboss
+  - facebook/bgp
+  - facebook/DNE-Taac
+  - facebook/openr

@@ -12,7 +12,7 @@ from repo_newz.errors import ConfigError
 
 _REPO_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
-_DEFAULT_CONFIG = Path(__file__).parent.parent.parent / "config.yaml"
+_DEFAULT_CONFIG = Path.home() / ".config" / "repo-newz" / "config.yaml"
 
 
 @dataclass

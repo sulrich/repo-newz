@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="PATH",
         default=None,
-        help="path to config.yaml (default: ./config.yaml next to this package).",
+        help="path to config.yaml (default: ~/.config/repo-newz/config.yaml).",
     )
     p.add_argument(
         "--env",

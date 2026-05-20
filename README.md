@@ -30,7 +30,13 @@ gh auth token
 
 ### 3. configure repos
 
-edit `config.yaml` to list the repos you want to watch:
+copy `config.yaml.example` to `~/.config/repo-newz/config.yaml` and edit
+the repo list:
+
+```text
+mkdir -p ~/.config/repo-newz
+cp config.yaml.example ~/.config/repo-newz/config.yaml
+```
 
 ```yaml
 window_hours: 24
@@ -39,6 +45,8 @@ repos:
   - anthropics/claude-code
   - owner/other-repo
 ```
+
+you can override the location at runtime with `--config PATH`.
 
 ### 4. test a run
 
@@ -88,7 +96,7 @@ you get a consistent presence in the vault.
 
   --dry-run          print resolved paths and repo list; no API calls, no writes
   --since HOURS      override the window_hours from config
-  --config PATH      use a different config.yaml
+  --config PATH      use a different config.yaml (default: ~/.config/repo-newz/config.yaml)
   --env PATH         use a different .env file
   -v, --verbose      enable debug logging
 ```

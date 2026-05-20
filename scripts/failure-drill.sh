@@ -51,7 +51,7 @@ if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
   echo "-- scenario: OBSIDIAN_HOME does not exist (live run) --"
   rc=0
   OBSIDIAN_HOME="/tmp/nonexistent_vault_xyz_$$" \
-    $RUN --config "$REPO_ROOT/config.yaml" 2>/dev/null || rc=$?
+    $RUN --config "$REPO_ROOT/config.yaml.example" 2>/dev/null || rc=$?
   check "missing vault -> exit 5" 5 "${rc:-0}"
 else
   echo ""

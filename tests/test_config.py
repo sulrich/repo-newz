@@ -37,6 +37,12 @@ _VALID_CONFIG = {
 }
 
 
+def test_default_config_path():
+    from repo_newz.config import _DEFAULT_CONFIG
+    from pathlib import Path
+    assert _DEFAULT_CONFIG == Path.home() / ".config" / "repo-newz" / "config.yaml"
+
+
 class TestLoadHappyPath:
     def test_returns_config_with_correct_repos(self, tmp_path, monkeypatch):
         cfg_path = _write_config(tmp_path, _VALID_CONFIG)
