@@ -112,6 +112,15 @@ class TestFillProseSlots:
             result = fill_prose_slots(_EVENTS, _cfg())
         assert result == {}
 
+    def test_markdown_fenced_json_is_parsed(self):
+        fenced = f"```json\n{json.dumps(_GOOD_RESPONSE)}\n```"
+        with patch("repo_newz.summarize.anthropic.Anthropic") as MockClient:
+            instance = MockClient.return_value
+            instance.messages.create.return_value = _mock_message(fenced)
+            result = fill_prose_slots(_EVENTS, _cfg())
+        assert result["overview_prose"] == "One commit landed."
+        assert result["per_repo_prose"]["owner/repo"] == "One fix merged by alice."
+
     def test_malformed_json_returns_empty_dict(self):
         with patch("repo_newz.summarize.anthropic.Anthropic") as MockClient:
             instance = MockClient.return_value
