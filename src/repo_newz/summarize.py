@@ -73,6 +73,11 @@ def fill_prose_slots(events: list[dict], cfg: "Config") -> dict:
 
 
 def _parse_response(raw: str) -> dict:
+    # strip markdown code fences the model sometimes wraps around JSON
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]  # drop opening fence line
+        raw = raw.rsplit("```", 1)[0].strip()
+
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
