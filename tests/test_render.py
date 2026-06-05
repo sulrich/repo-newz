@@ -121,8 +121,8 @@ def test_front_matter_parses_as_yaml(output):
 
 
 def test_repo_section_headers_present(output):
-    assert "### owner/repo" in output
-    assert "### other/proj" in output
+    assert "### [owner/repo](https://github.com/owner/repo)" in output
+    assert "### [other/proj](https://github.com/other/proj)" in output
 
 
 def test_commit_line_format(output):
@@ -178,7 +178,7 @@ def test_no_global_contributor_roundup_section(output):
 
 def test_contributor_table_inside_repo_section(output):
     # the contributors table must appear after the repo heading, not before it
-    owner_repo_pos = output.index("### owner/repo")
+    owner_repo_pos = output.index("### [owner/repo](https://github.com/owner/repo)")
     assert "alice" in output[owner_repo_pos:]
 
 
@@ -192,7 +192,7 @@ def test_empty_day(cfg):
         if "|" in l and "login" not in l and "---" not in l and l.strip().startswith("|")
     ]
     assert len(table_data_rows) == 0
-    assert "### other/proj" in out
+    assert "### [other/proj](https://github.com/other/proj)" in out
 
 
 def test_prose_injected(cfg):
