@@ -130,6 +130,10 @@ def _run(cfg, output_path: Path, now: datetime) -> int:
     content = render(events, prose, warnings, cfg, now)
     write_vault(output_path, content)
     log.info("wrote %s", output_path)
+
+    from repo_newz.slack import post_summary
+    post_summary(prose, now.strftime("%Y-%m-%d"))
+
     return EXIT_OK
 
 
