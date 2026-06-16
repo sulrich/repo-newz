@@ -1,15 +1,9 @@
----
-title: "repo activity: {{ date }}"
-author: steve ulrich
-email: sulrich@botwerks.org
-creation date: {{ date }}
-tags:
-  - repo-newz
-  - github
-  - automation
----
-
-# repo activity — {{ date_pretty }}
++++
+title = "repo activity: {{ date }}"
+date = "{{ date_iso }}"
+draft = false
+tags = ["repo-newz", "github", "automation"]
++++
 
 {{ overview_prose }}
 

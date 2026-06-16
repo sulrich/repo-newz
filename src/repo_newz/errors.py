@@ -22,5 +22,5 @@ class GitHubRepoError(Exception):
         super().__init__(f"{repo}: {reason}")
 
 
-class VaultError(Exception):
-    """OBSIDIAN_HOME missing or not writable. Exit 5."""
+class PublishError(Exception):
+    """Hugo content dir, build, or publish target failure. Exit 5."""

@@ -11,8 +11,9 @@ from repo_newz.errors import (
     ConfigError,
     GitHubAuthError,
     GitHubRateLimitError,
-    VaultError,
+    PublishError,
 )
+from repo_newz.hugo import page_url
 
 log = logging.getLogger("repo_newz")
 
@@ -20,19 +21,19 @@ EXIT_OK = 0
 EXIT_CONFIG = 2
 EXIT_GITHUB_AUTH = 3
 EXIT_GITHUB_RATE = 4
-EXIT_VAULT = 5
+EXIT_PUBLISH = 5
 EXIT_UNEXPECTED = 1
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="repo-newz",
-        description="fetch 24h github activity and write a summary to obsidian.",
+        description="fetch 24h github activity, publish a summary to the hugo site.",
     )
     p.add_argument(
         "--dry-run",
         action="store_true",
-        help="print what would be done; no API calls to anthropic, no vault writes.",
+        help="print what would be done; no API calls to anthropic, no build or writes.",
     )
     p.add_argument(
         "--since",
@@ -86,41 +87,42 @@ def main(argv: list[str] | None = None) -> int:
         cfg.window_hours = args.since
 
     now = datetime.now(timezone.utc)
-    date_str = now.strftime("%Y%m%d")
-    year_str = now.strftime("%Y")
-    output_path = cfg.obsidian_home / cfg.vault_subpath.format(
-        year=year_str, date=date_str
-    )
+    slug = f"repo-activity-{now.strftime('%Y%m%d')}"
+    url = page_url(cfg.hugo_base_url, cfg.hugo_section, slug)
 
     if args.dry_run:
         print("dry-run mode")
-        print(f"  repos      : {cfg.repos}")
-        print(f"  window     : {cfg.window_hours}h")
-        print(f"  model      : {cfg.model}")
-        print(f"  output     : {output_path}")
+        print(f"  repos       : {cfg.repos}")
+        print(f"  window      : {cfg.window_hours}h")
+        print(f"  model       : {cfg.model}")
+        print(f"  content dir : {cfg.hugo_content_dir}")
+        print(f"  output      : {cfg.hugo_content_dir / (slug + '.md')}")
+        print(f"  publish dir : {cfg.hugo_publish_dir}")
+        print(f"  url         : {url}")
         return EXIT_OK
 
     try:
-        return _run(cfg, output_path, now)
+        return _run(cfg, slug, url, now)
     except GitHubAuthError as exc:
         log.error("github auth failed: %s", exc)
         return EXIT_GITHUB_AUTH
     except GitHubRateLimitError as exc:
         log.error("github rate limit: %s", exc)
         return EXIT_GITHUB_RATE
-    except VaultError as exc:
-        log.error("vault error: %s", exc)
-        return EXIT_VAULT
+    except PublishError as exc:
+        log.error("publish error: %s", exc)
+        return EXIT_PUBLISH
     except Exception as exc:
         log.exception("unexpected error: %s", exc)
         return EXIT_UNEXPECTED
 
 
-def _run(cfg, output_path: Path, now: datetime) -> int:
+def _run(cfg, slug: str, url: str, now: datetime) -> int:
     from repo_newz.github import fetch_all
     from repo_newz.summarize import fill_prose_slots
     from repo_newz.render import render
-    from repo_newz.obsidian import write_vault
+    from repo_newz.hugo import write_post, build_and_publish
+    from repo_newz.slack import post_summary
 
     log.info("fetching activity for %d repos (window: %dh)", len(cfg.repos), cfg.window_hours)
     events, warnings = fetch_all(cfg.repos, cfg.window_hours, cfg.github_token)
@@ -128,11 +130,13 @@ def _run(cfg, output_path: Path, now: datetime) -> int:
     prose = fill_prose_slots(events, cfg) if events else {}
 
     content = render(events, prose, warnings, cfg, now)
-    write_vault(output_path, content)
-    log.info("wrote %s", output_path)
+    path = write_post(cfg.hugo_content_dir, slug, content)
+    log.info("wrote %s", path)
 
-    from repo_newz.slack import post_summary
-    post_summary(prose, now.strftime("%Y-%m-%d"))
+    build_and_publish(cfg.hugo_site_dir, cfg.hugo_publish_dir)
+    log.info("published site to %s (%s)", cfg.hugo_publish_dir, url)
+
+    post_summary(prose, now.strftime("%Y-%m-%d"), url)
 
     return EXIT_OK
 

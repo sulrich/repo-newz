@@ -3,7 +3,7 @@
 # Each scenario prints PASS or FAIL with the expected vs actual exit code.
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-UV="${UV:-/Users/sulrich/.local/bin/uv}"
+UV="${UV:-$(command -v uv)}"
 RUN="$UV run python -m repo_newz"
 PASS=0
 FAIL=0
@@ -25,7 +25,8 @@ echo "=== repo-newz failure drill ==="
 
 echo ""
 echo "-- scenario: missing ANTHROPIC_API_KEY --"
-env -i HOME="$HOME" GITHUB_TOKEN="ghp_test" OBSIDIAN_HOME="/tmp" \
+env -i HOME="$HOME" GITHUB_TOKEN="ghp_test" \
+  HUGO_SITE_DIR="/tmp" HUGO_CONTENT_DIR="/tmp/content/repo-newz" HUGO_PUBLISH_DIR="/tmp" \
   $RUN --dry-run 2>/dev/null || rc=$?
 check "missing ANTHROPIC_API_KEY -> exit 2" 2 "${rc:-0}"
 
@@ -41,21 +42,26 @@ echo "-- scenario: malformed config.yaml --"
 TMPCONFIG=$(mktemp /tmp/repo_newz_XXXXXX.yaml)
 echo ": bad: yaml: [" > "$TMPCONFIG"
 rc=0
-ANTHROPIC_API_KEY=sk-test GITHUB_TOKEN=ghp_test OBSIDIAN_HOME=/tmp \
+ANTHROPIC_API_KEY=sk-test GITHUB_TOKEN=ghp_test \
+  HUGO_SITE_DIR=/tmp HUGO_CONTENT_DIR=/tmp/content/repo-newz HUGO_PUBLISH_DIR=/tmp \
   $RUN --config "$TMPCONFIG" --dry-run 2>/dev/null || rc=$?
 check "malformed config.yaml -> exit 2" 2 "${rc:-0}"
 rm -f "$TMPCONFIG"
 
-if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+# a publish-time failure (exit 5) needs a live run: valid config + a real hugo
+# site to build, but a non-existent publish target. set HUGO_SITE_DIR/CONTENT_DIR
+# to a real hugo site via env before running the drill.
+if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "${ANTHROPIC_API_KEY:-}" ] \
+   && [ -d "${HUGO_SITE_DIR:-/nonexistent}" ]; then
   echo ""
-  echo "-- scenario: OBSIDIAN_HOME does not exist (live run) --"
+  echo "-- scenario: HUGO_PUBLISH_DIR does not exist (live run) --"
   rc=0
-  OBSIDIAN_HOME="/tmp/nonexistent_vault_xyz_$$" \
+  HUGO_PUBLISH_DIR="/tmp/nonexistent_publish_xyz_$$" \
     $RUN --config "$REPO_ROOT/config.yaml.example" 2>/dev/null || rc=$?
-  check "missing vault -> exit 5" 5 "${rc:-0}"
+  check "missing publish dir -> exit 5" 5 "${rc:-0}"
 else
   echo ""
-  echo "SKIP  [missing vault] -- GITHUB_TOKEN or ANTHROPIC_API_KEY not set in env"
+  echo "SKIP  [missing publish dir] -- set GITHUB_TOKEN, ANTHROPIC_API_KEY, HUGO_SITE_DIR, HUGO_CONTENT_DIR in env"
 fi
 
 echo ""

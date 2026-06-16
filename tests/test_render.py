@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import tomllib
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
-import yaml
 
 from repo_newz.config import Config
 from repo_newz.render import render
@@ -93,10 +94,13 @@ def cfg():
         repos=["owner/repo", "other/proj"],
         model="claude-sonnet-4-6",
         window_hours=24,
-        vault_subpath="{year}/repo-activity-{date}.md",
         anthropic_api_key="sk-ant-test",
         github_token="ghp_test",
-        obsidian_home="/tmp/vault",
+        hugo_site_dir=Path("/site"),
+        hugo_content_dir=Path("/site/content/repo-newz"),
+        hugo_publish_dir=Path("/www"),
+        hugo_base_url="https://dyn.botwerks.net",
+        hugo_section="repo-newz",
     )
 
 
@@ -106,18 +110,19 @@ def output(cfg):
 
 
 def test_renders_front_matter(output):
-    assert output.startswith("---")
-    assert "title:" in output
-    assert "author:" in output
-    assert "tags:" in output
+    assert output.startswith("+++")
+    assert 'title = "repo activity: 20260519"' in output
+    assert "date =" in output
+    assert "tags =" in output
 
 
-def test_front_matter_parses_as_yaml(output):
-    # extract the front matter block between the first --- and second ---
-    parts = output.split("---", 2)
-    fm = yaml.safe_load(parts[1])
-    assert fm["author"] == "steve ulrich"
+def test_front_matter_parses_as_toml(output):
+    # extract the front matter block between the first +++ and second +++
+    parts = output.split("+++", 2)
+    fm = tomllib.loads(parts[1])
+    assert fm["draft"] is False
     assert "repo-newz" in fm["tags"]
+    assert fm["title"] == "repo activity: 20260519"
 
 
 def test_repo_section_headers_present(output):

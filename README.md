@@ -1,8 +1,9 @@
 # repo-newz
 
-fetches 24h of github activity across a configured repo list and writes a daily
-summary into an obsidian vault. sonnet writes the prose; the code handles fact
-gathering.
+fetches 24h of github activity across a configured repo list, writes a daily
+summary into a hugo site, rebuilds and publishes the site, and posts the
+summary to slack with a link to the rendered page. sonnet writes the prose; the
+code handles fact gathering.
 
 ## setup
 
@@ -19,7 +20,9 @@ copy `.env.example` to `.env` and fill in your values:
 ```text
 ANTHROPIC_API_KEY=sk-ant-...
 GITHUB_TOKEN=ghp_...
-OBSIDIAN_HOME=/path/to/your/obsidian/vault
+HUGO_SITE_DIR=/path/to/your/hugo/site
+HUGO_CONTENT_DIR=/path/to/your/hugo/site/content/repo-newz
+HUGO_PUBLISH_DIR=/path/to/served/www/root
 ```
 
 `GITHUB_TOKEN` needs `repo` scope. grab your current token with:
@@ -27,6 +30,17 @@ OBSIDIAN_HOME=/path/to/your/obsidian/vault
 ```text
 gh auth token
 ```
+
+`HUGO_SITE_DIR` is the hugo project root (where `config.toml` lives); the
+published site's `baseURL` is read from there to build page links.
+`HUGO_CONTENT_DIR` is where the daily markdown is written - it must live under
+`<HUGO_SITE_DIR>/content/`, and its path under `content/` becomes the URL
+section (e.g. `content/repo-newz` -> `/repo-newz/`). `HUGO_PUBLISH_DIR` is the
+directory the built site is copied into for serving.
+
+> note: the hugo site's home page must be `content/_index.md`, not
+> `content/index.md`. a root `index.md` is a leaf bundle and silently prevents
+> child sections like `repo-newz/` from rendering.
 
 ### 3. configure repos
 
@@ -54,14 +68,16 @@ you can override the location at runtime with `--config PATH`.
 ./repo-newz --dry-run
 ```
 
-this prints the resolved output path and repo list without actually calling
-anthropic or writing anything. for a live run:
+this prints the resolved paths, page url, and repo list without actually
+calling anthropic, building, or writing anything. for a live run:
 
 ```text
 ./repo-newz
 ```
 
-the output file lands at `$OBSIDIAN_HOME/YYYY/repo-activity-YYYYMMDD.md`.
+the markdown lands at `$HUGO_CONTENT_DIR/repo-activity-YYYYMMDD.md`, the site is
+rebuilt and copied into `$HUGO_PUBLISH_DIR`, and the page is reachable at
+`<baseURL>/<section>/repo-activity-YYYYMMDD/`.
 
 ### 5. schedule with cron
 
@@ -81,13 +97,17 @@ log file for a few minutes, then restore to daily.
 1. reads `config.yaml` and `.env` for the repo list and credentials
 2. hits the github REST API for each repo - commits, PRs, issues, releases - over
    the configured window (default: last 24h)
-3. passes the raw event data to sonnet, which writes prose summaries into three
-   named slots: overview, contributor roundup, and per-repo narrative
-4. renders everything into a jinja template and writes the markdown file to
-   `$OBSIDIAN_HOME/YYYY/repo-activity-YYYYMMDD.md`
+3. passes the raw event data to sonnet, which writes prose summaries into two
+   named slots: an overview and a per-repo narrative
+4. renders everything into a jinja template (with hugo front matter) and writes
+   the markdown to `$HUGO_CONTENT_DIR/repo-activity-YYYYMMDD.md`
+5. runs `hugo` to rebuild the site, then merge-copies `public/` into
+   `$HUGO_PUBLISH_DIR` - additive only, so files the build did not produce
+   (other served trees, static assets, etc.) are never deleted or overwritten
+6. posts the summary to slack with a link to the published page
 
 on empty days (zero activity across all repos), it still writes a stub file so
-you get a consistent presence in the vault.
+you get a consistent presence on the site.
 
 ## options
 
@@ -118,7 +138,7 @@ bash scripts/failure-drill.sh
 | 2 | config / env var error |
 | 3 | github 401 - bad token |
 | 4 | github rate limit exhausted |
-| 5 | obsidian vault not found or not writable |
+| 5 | hugo content dir, build, or publish target failure |
 
 per-repo failures (404, timeouts, permission errors on a single repo) don't stop
 the run - they get collected as warnings and appear in a `## warnings` section at

@@ -1,5 +1,4 @@
 window_hours: 24
-vault_subpath: "{year}/repo-activity-{date}.md"
 model: claude-sonnet-4-6
 repos:
   - sulrich/dotfiles

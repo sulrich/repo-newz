@@ -13,10 +13,13 @@ def _cfg() -> Config:
         repos=["owner/repo"],
         window_hours=24,
         model="claude-sonnet-4-6",
-        vault_subpath="{year}/repo-activity-{date}.md",
         anthropic_api_key="sk-ant-test",
         github_token="ghp_test",
-        obsidian_home=Path("/tmp/vault"),
+        hugo_site_dir=Path("/site"),
+        hugo_content_dir=Path("/site/content/repo-newz"),
+        hugo_publish_dir=Path("/www"),
+        hugo_base_url="https://dyn.botwerks.net",
+        hugo_section="repo-newz",
     )
 
 
