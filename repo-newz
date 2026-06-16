@@ -1,2 +1,5 @@
 #!/usr/bin/env bash
+
+# added to pick up hugo for build process
+export PATH=$HOME/go/bin:$PATH
 exec "$(dirname "$0")/.venv/bin/repo-newz" "$@"
