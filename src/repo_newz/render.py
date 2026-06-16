@@ -97,6 +97,7 @@ def render(
     return template.render(
         date=now.strftime("%Y%m%d"),
         date_pretty=now.strftime("%B %d, %Y"),
+        date_iso=now.isoformat(),
         overview_prose=prose.get(
             "overview_prose", "no activity across the watched repos in the last 24h."
         ),

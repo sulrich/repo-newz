@@ -8,11 +8,12 @@ import httpx
 log = logging.getLogger("repo_newz")
 
 
-def post_summary(prose: dict, date_str: str) -> None:
+def post_summary(prose: dict, date_str: str, url: str | None = None) -> None:
     """Post the daily summary to Slack via an incoming webhook.
 
     Reads SLACK_WEBHOOK_URL (required) and SLACK_USER_ID (optional) from env.
     Does nothing if SLACK_WEBHOOK_URL is not set. Logs a warning on failure.
+    When url is given, a link to the published page is appended at the foot.
     """
     webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "").strip()
     if not webhook_url:
@@ -29,6 +30,9 @@ def post_summary(prose: dict, date_str: str) -> None:
         lines.append("")
         for repo, summary in per_repo.items():
             lines.append(f"• *{repo}*: {summary}")
+    if url:
+        lines.append("")
+        lines.append(f"<{url}|view the full report>")
 
     try:
         resp = httpx.post(

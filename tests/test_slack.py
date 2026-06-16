@@ -34,6 +34,18 @@ def test_posts_when_webhook_set(monkeypatch):
 
 
 @respx.mock
+def test_includes_url_footer_when_url_given(monkeypatch):
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", WEBHOOK)
+    monkeypatch.delenv("SLACK_USER_ID", raising=False)
+
+    route = respx.post(WEBHOOK).mock(return_value=httpx.Response(200))
+    post_summary(PROSE, "2026-06-12", "https://dyn.botwerks.net/repo-newz/repo-activity-20260612/")
+
+    body = route.calls[0].request.content.decode()
+    assert "https://dyn.botwerks.net/repo-newz/repo-activity-20260612/" in body
+
+
+@respx.mock
 def test_includes_mention_when_user_id_set(monkeypatch):
     monkeypatch.setenv("SLACK_WEBHOOK_URL", WEBHOOK)
     monkeypatch.setenv("SLACK_USER_ID", "U12345678")
