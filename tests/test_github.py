@@ -36,6 +36,14 @@ REPO_INFO = {"default_branch": "main", "full_name": FULL}
 # ---------------------------------------------------------------------------
 
 
+def make_user(login: str, html_url: str | None = None) -> dict:
+    """Produce a GitHub user object as the API returns it."""
+    return {
+        "login": login,
+        "html_url": html_url if html_url is not None else f"https://github.com/{login}",
+    }
+
+
 def make_commit(
     sha: str,
     message: str,
@@ -46,7 +54,7 @@ def make_commit(
     return {
         "sha": sha,
         "html_url": f"https://github.com/{FULL}/commit/{sha}",
-        "author": {"login": author_login} if author_login else None,
+        "author": make_user(author_login) if author_login else None,
         "commit": {
             "message": message,
             "author": {
@@ -72,7 +80,7 @@ def make_pr(
         "title": title,
         "state": state,
         "html_url": f"https://github.com/{FULL}/pull/{number}",
-        "user": {"login": user_login},
+        "user": make_user(user_login),
         "created_at": created_at,
         "merged_at": merged_at,
         "closed_at": closed_at,
@@ -93,7 +101,7 @@ def make_issue(
         "title": title,
         "state": state,
         "html_url": f"https://github.com/{FULL}/issues/{number}",
-        "user": {"login": user_login},
+        "user": make_user(user_login),
         "created_at": created_at,
         "closed_at": closed_at,
     }
@@ -109,7 +117,7 @@ def make_release(
         "tag_name": tag,
         "name": name,
         "html_url": f"https://github.com/{FULL}/releases/tag/{tag}",
-        "author": {"login": author_login},
+        "author": make_user(author_login),
         "published_at": published_at,
     }
 
@@ -510,6 +518,59 @@ def test_actor_fallback_no_author_field():
     assert len(events) == 1
     # Falls back to commit.commit.author.name which make_commit sets to "Test Author"
     assert events[0]["actor"] == "Test Author"
+    # a display name is not a login, so there is no profile to link to
+    assert events[0]["actor_url"] is None
+
+
+def test_actor_url_from_linked_commit_author():
+    """A commit with a linked github account carries the account's html_url."""
+    commit = make_commit("abcdef1234567890", "feat: add thing", "alice", IN_WINDOW)
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[commit]))
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    assert events[0]["actor_url"] == "https://github.com/alice"
+
+
+def test_actor_url_uses_api_html_url_for_bots():
+    """Bot logins like "dependabot[bot]" link to their /apps/ profile, not /<login>."""
+    pr = make_pr(9, "Bump dep", "dependabot[bot]", IN_WINDOW)
+    pr["user"] = make_user("dependabot[bot]", "https://github.com/apps/dependabot")
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[pr]))
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    assert events[0]["actor"] == "dependabot[bot]"
+    assert events[0]["actor_url"] == "https://github.com/apps/dependabot"
+
+
+def test_actor_url_absent_from_payload():
+    """A user object without html_url yields actor_url=None rather than a bad link."""
+    pr = make_pr(10, "No profile", "carol", IN_WINDOW)
+    del pr["user"]["html_url"]
+    with respx.mock:
+        _register_repo_info(respx.mock)
+        respx.mock.get(_prs_url()).mock(return_value=httpx.Response(200, json=[pr]))
+        respx.mock.get(_commits_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_issues_url()).mock(return_value=httpx.Response(200, json=[]))
+        respx.mock.get(_releases_url()).mock(return_value=httpx.Response(200, json=[]))
+
+        events, warnings = fetch_all([FULL], 24, TOKEN, _now=NOW)
+
+    assert warnings == []
+    assert events[0]["actor_url"] is None
 
 
 def test_pr_labels_included():

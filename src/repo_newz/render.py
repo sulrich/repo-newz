@@ -52,11 +52,16 @@ def render(
 
         # per-repo contributor counts
         contrib_counts: dict[str, dict] = defaultdict(
-            lambda: {"commits": 0, "prs": 0, "issues": 0, "releases": 0}
+            lambda: {"commits": 0, "prs": 0, "issues": 0, "releases": 0, "url": None}
         )
         for e in repo_events:
             actor = e["actor"]
             kind = e["kind"]
+            # an actor can show up both with and without a resolvable profile
+            # (unlinked commit author + a PR under the same display name); keep
+            # the first URL we see so the row still links where possible.
+            if contrib_counts[actor]["url"] is None:
+                contrib_counts[actor]["url"] = e.get("actor_url")
             if kind == "commit":
                 contrib_counts[actor]["commits"] += 1
             elif kind in _PR_KINDS:
