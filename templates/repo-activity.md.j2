@@ -20,7 +20,7 @@ tags = ["repo-newz", "github", "automation"]
 | login | commits | prs | issues | releases |
 |---|---|---|---|---|
 {% for c in repo.contributors -%}
-| [{{ c.login }}](https://github.com/{{ c.login }}) | {{ c.commits }} | {{ c.prs }} | {{ c.issues }} | {{ c.releases }} |
+| {% if c.url %}[{{ c.login }}]({{ c.url }}){% else %}{{ c.login }}{% endif %} | {{ c.commits }} | {{ c.prs }} | {{ c.issues }} | {{ c.releases }} |
 {% endfor %}
 {% endif -%}
 {% if repo.commits -%}

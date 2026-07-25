@@ -162,6 +162,20 @@ def _parse_dt(dt_str: str) -> datetime:
     return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
 
 
+def _actor_url(user_obj: Optional[dict]) -> Optional[str]:
+    """profile URL for a github user object, or None if there isn't one.
+
+    always prefer the API's own html_url over building github.com/<login> by
+    hand: bot accounts have logins like "dependabot[bot]" whose profile actually
+    lives at /apps/dependabot. None means "no linkable account" - the caller
+    should render the actor as plain text (see _events_for_repo commit handling).
+    """
+    if not user_obj:
+        return None
+    url = user_obj.get("html_url")
+    return url or None
+
+
 def _events_for_repo(
     client: httpx.Client,
     repo: str,
@@ -186,14 +200,19 @@ def _events_for_repo(
         author_obj = commit.get("author")
         if author_obj and author_obj.get("login"):
             actor = author_obj["login"]
+            actor_url = _actor_url(author_obj)
         else:
+            # no linked github account - this is the git author's display name
+            # ("Ashutosh Grewal"), not a login, so there is nothing to link to.
             actor = commit["commit"]["author"]["name"]
+            actor_url = None
         title = commit["commit"]["message"].splitlines()[0]
         events.append(
             {
                 "repo": full_name,
                 "kind": "commit",
                 "actor": actor,
+                "actor_url": actor_url,
                 "title": title,
                 "url": commit["html_url"],
                 "at": date_str,
@@ -216,6 +235,7 @@ def _events_for_repo(
         base_event = {
             "repo": full_name,
             "actor": actor,
+            "actor_url": _actor_url(pr["user"]),
             "title": pr["title"],
             "url": pr["html_url"],
             "number": pr["number"],
@@ -247,6 +267,7 @@ def _events_for_repo(
         base_event = {
             "repo": full_name,
             "actor": actor,
+            "actor_url": _actor_url(issue["user"]),
             "title": issue["title"],
             "url": issue["html_url"],
             "number": issue["number"],
@@ -274,6 +295,7 @@ def _events_for_repo(
                 "repo": full_name,
                 "kind": "release",
                 "actor": release["author"]["login"],
+                "actor_url": _actor_url(release["author"]),
                 "title": release.get("name") or release["tag_name"],
                 "url": release["html_url"],
                 "at": pub_str,
