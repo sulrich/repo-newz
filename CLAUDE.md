@@ -81,10 +81,18 @@ The flow is a fixed sequence, each stage in its own module:
   presence. Don't short-circuit this.
 
 - **Event normalization is the contract.** Every event dict carries the same
-  shape (`repo`, `kind`, `actor`, `title`, `url`, `at`, `number`, `sha`, and PRs
-  additionally `labels`). `kind` is one of `commit`, `pr_opened`, `pr_merged`,
-  `pr_closed`, `issue_opened`, `issue_closed`, `release`. render.py and the
-  template depend on this shape — extend it carefully.
+  shape (`repo`, `kind`, `actor`, `actor_url`, `title`, `url`, `at`, `number`,
+  `sha`, and PRs additionally `labels`). `kind` is one of `commit`, `pr_opened`,
+  `pr_merged`, `pr_closed`, `issue_opened`, `issue_closed`, `release`. render.py
+  and the template depend on this shape — extend it carefully.
+
+- **`actor` is not always a github login.** A commit whose author isn't linked to
+  a github account falls back to the git author's display name ("Ashutosh
+  Grewal"). `actor_url` carries the profile link *from the API's `html_url`* and
+  is `None` when there is no linkable account — the contributor table links only
+  when it's set. Never rebuild the link as `https://github.com/<actor>`: it
+  produces broken URLs with spaces for display names, and bot logins like
+  `dependabot[bot]` actually live at `/apps/dependabot`.
 
 - **PR "merged" detection has a special case.** A PR closed without a GitHub
   merge but carrying a `merged` label is treated as `pr_merged` (handles
